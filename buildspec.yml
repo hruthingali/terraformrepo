@@ -24,6 +24,7 @@ phases:
       - echo "Changing to Terraform directory (assuming main.tf is at root of source artifact)..."
       # If your Terraform files are in a subdirectory (e.g., 'terraform/'), uncomment and adjust:
       # - cd terraform/
+
       - echo "Initializing Terraform..."
       - terraform init
 
@@ -31,9 +32,11 @@ phases:
     commands:
       - echo "Validating Terraform configuration..."
       - terraform validate
+
       - echo "Generating Terraform plan..."
       # For production, you might pass this plan to a separate apply stage.
       - terraform plan -out=tfplan.out
+
       - echo "Applying Terraform changes..."
       # Automatically approve the plan. For production, consider a manual approval step in CodePipeline.
       - terraform apply -auto-approve tfplan.out
