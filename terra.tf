@@ -71,13 +71,13 @@ variable "private_db_subnet_cidr2" {
 variable "availability_zone" {
   description = "The Availability Zone to deploy primary resources into (AZ-a)."
   type        = string
-  default     = "us-west-1a" # Make sure this AZ is available in your chosen region
+  default     = "us-east-2a" # Changed to us-east-2a as per error message
 }
 
 variable "availability_zone2" {
   description = "The second Availability Zone for RDS and EKS (AZ-c)."
   type        = string
-  default     = "us-west-1c" # Make sure this AZ is available in your chosen region
+  default     = "us-east-2c" # Changed to us-east-2c as per error message
 }
 
 variable "eks_cluster_name" {
@@ -669,32 +669,32 @@ output "vpc_id" {
 }
 
 output "public_subnet_id_az_a" {
-  description = "The ID of the Public Subnet in us-west-1a"
+  description = "The ID of the Public Subnet in us-east-2a"
   value       = aws_subnet.public_subnet.id
 }
 
 output "public_subnet_id_az_c" {
-  description = "The ID of the Public Subnet in us-west-1c"
+  description = "The ID of the Public Subnet in us-east-2c"
   value       = aws_subnet.public_subnet2.id
 }
 
 output "private_app_subnet_id_az_a" {
-  description = "The ID of the Private Application Subnet in us-west-1a"
+  description = "The ID of the Private Application Subnet in us-east-2a"
   value       = aws_subnet.private_app_subnet.id
 }
 
 output "private_app_subnet_id_az_c" {
-  description = "The ID of the Private Application Subnet in us-west-1c"
+  description = "The ID of the Private Application Subnet in us-east-2c"
   value       = aws_subnet.private_app_subnet2.id
 }
 
 output "private_db_subnet_id_az_a" {
-  description = "The ID of the Private Database Subnet in us-west-1a"
+  description = "The ID of the Private Database Subnet in us-east-2a"
   value       = aws_subnet.private_db_subnet.id
 }
 
 output "private_db_subnet_id_az_c" {
-  description = "The ID of the Private Database Subnet in us-west-1c"
+  description = "The ID of the Private Database Subnet in us-east-2c"
   value       = aws_subnet.private_db_subnet2.id
 }
 
