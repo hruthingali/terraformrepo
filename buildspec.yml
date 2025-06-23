@@ -5,6 +5,9 @@ env:
   variables:
     TF_VERSION: "1.7.5"
     TF_PATH: "/usr/local/bin"
+    # === IMPORTANT: Variables for Terraform S3 Backend ===
+    TF_STATE_BUCKET: "your-terraform-state-bucket-name" # IMPORTANT: Replace with your unique S3 bucket name
+    TF_STATE_LOCK_TABLE: "your-terraform-state-lock-table" # IMPORTANT: Replace with your DynamoDB table name
 
 phases:
   install:
@@ -24,22 +27,29 @@ phases:
       - "echo \"Changing to Terraform directory (assuming main.tf is at root of source artifact)...\""
       # If your Terraform files are in a subdirectory (e.g., 'terraform/'), uncomment and adjust the line below:
       # - "cd terraform/"
-      - "echo \"Initializing Terraform...\""
-      - "terraform init"
+      - "echo \"Initializing Terraform with S3 backend...\""
+      # === CRITICAL: terraform init with S3 backend configuration ===
+      # This command tells Terraform to download the existing state from S3
+      # and use the DynamoDB table for state locking.
+      - "terraform init -backend-config=\"bucket=${TF_STATE_BUCKET}\" -backend-config=\"key=${var.environment_name}/terraform.tfstate\" -backend-config=\"dynamodb_table=${TF_STATE_LOCK_TABLE}\" -backend-config=\"region=${AWS_REGION}\" -reconfigure"
 
   build:
     commands:
       - "echo \"Validating Terraform configuration...\""
       - "terraform validate"
       - "echo \"Generating Terraform plan...\""
+      # This plan will show what changes (updates, creations, deletions) are needed
+      # based on the difference between your code, the state file (from S3), and actual AWS resources.
       - "terraform plan -out=tfplan.out"
       - "echo \"Applying Terraform changes...\""
+      # This command applies the changes from the plan. If resources exist and are in state,
+      # it will update them. If they are in the config but not in state (and don't exist in AWS),
+      # it will create them.
       - "terraform apply -auto-approve tfplan.out"
 
   post_build:
     commands:
       - "echo \"Terraform deployment complete.\""
-      # The following commands output useful information after deployment:
       - "echo \"EKS Cluster Name: $(terraform output -raw eks_cluster_name_output)\""
       - "echo \"RDS Endpoint Address: $(terraform output -raw db_endpoint_address)\""
 
