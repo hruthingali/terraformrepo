@@ -4,9 +4,9 @@ env:
   variables:
     TF_VERSION: "1.8.5"
     TF_PATH: "/usr/local/bin"
-    TF_STATE_BUCKET: "your-terraform-state-bucket-name"       # Replace with your actual S3 bucket
-    TF_STATE_LOCK_TABLE: "your-terraform-state-lock-table"    # Replace with your actual DynamoDB table
-    ENV_NAME: "dev"                                            # Used for the S3 key path
+    TF_STATE_BUCKET: "your-terraform-state-bucket-name"
+    TF_STATE_LOCK_TABLE: "your-terraform-state-lock-table"
+    ENV_NAME: "dev"
 
 phases:
   install:
@@ -24,25 +24,25 @@ phases:
 
   pre_build:
     commands:
-      - echo "Assuming Terraform configuration (main.tf, variables.tf) is in the current directory..."
-      - echo "Checking for existing DynamoDB state lock table: ${TF_STATE_LOCK_TABLE} in ${AWS_REGION}..."
+      - echo "Assuming Terraform configuration is in the current directory..."
+      - echo "Checking if DynamoDB table ${TF_STATE_LOCK_TABLE} exists in ${AWS_REGION}..."
       - |
         if ! aws dynamodb describe-table --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}" 2>/dev/null; then
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} does not exist. Creating now..."
+          echo "Table doesn't exist. Creating..."
           aws dynamodb create-table \
             --table-name "${TF_STATE_LOCK_TABLE}" \
             --attribute-definitions AttributeName=LockID,AttributeType=S \
             --key-schema AttributeName=LockID,KeyType=HASH \
             --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
             --region "${AWS_REGION}"
-          echo "Waiting for DynamoDB table ${TF_STATE_LOCK_TABLE} to become active..."
+          echo "Waiting for table to become active..."
           aws dynamodb wait table-exists --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}"
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} created successfully."
         else
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} already exists."
+          echo "DynamoDB table exists."
         fi
       - echo "Initializing Terraform with S3 backend..."
-      - terraform init \
+      - |
+        terraform init \
           -backend-config="bucket=${TF_STATE_BUCKET}" \
           -backend-config="key=${ENV_NAME}/terraform.tfstate" \
           -backend-config="dynamodb_table=${TF_STATE_LOCK_TABLE}" \
@@ -51,9 +51,9 @@ phases:
 
   build:
     commands:
-      - echo "Validating Terraform configuration..."
+      - echo "Validating Terraform..."
       - terraform validate
-      - echo "Generating Terraform execution plan..."
+      - echo "Planning Terraform changes..."
       - terraform plan -lock=true -out=tfplan.out
       - echo "Applying Terraform plan..."
       - terraform apply -lock=true -auto-approve tfplan.out
