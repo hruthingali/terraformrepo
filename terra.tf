@@ -7,6 +7,11 @@ provider "aws" {
   # region = "us-west-1" # Removed hardcoded region
 }
 
+# Data source to fetch availability zones for the current region
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 # --- Variables (corresponding to CloudFormation Parameters) ---
 variable "environment_name" {
   description = "A name prefix for resources to ensure uniqueness."
@@ -69,15 +74,17 @@ variable "private_db_subnet_cidr2" {
 }
 
 variable "availability_zone" {
-  description = "The Availability Zone to deploy primary resources into (AZ-a)."
+  description = "The first Availability Zone to deploy primary resources into (e.g., us-east-2a)."
   type        = string
-  default     = "us-east-2a" # Changed to us-east-2a as per error message
+  # Dynamically select the first available AZ
+  default     = data.aws_availability_zones.available.names[0]
 }
 
 variable "availability_zone2" {
-  description = "The second Availability Zone for RDS and EKS (AZ-c)."
+  description = "The second Availability Zone for RDS and EKS (e.g., us-east-2c)."
   type        = string
-  default     = "us-east-2c" # Changed to us-east-2c as per error message
+  # Dynamically select the second available AZ
+  default     = data.aws_availability_zones.available.names[1]
 }
 
 variable "eks_cluster_name" {
@@ -143,8 +150,8 @@ variable "ssh_key_pair_name" {
 
 # --- 1. VPC and Networking Components (Foundation) ---
 resource "aws_vpc" "my_vpc" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_support   = true
+  cidr_block         = var.vpc_cidr
+  enable_dns_support = true
   enable_dns_hostnames = true
 
   tags = {
@@ -162,8 +169,6 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 
-# No explicit aws_vpc_gateway_attachment needed, as aws_internet_gateway handles attachment via vpc_id
-
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.my_vpc.id
   cidr_block              = var.public_subnet_cidr
@@ -171,9 +176,9 @@ resource "aws_subnet" "public_subnet" {
   availability_zone       = var.availability_zone
 
   tags = {
-    Name                                    = "${var.environment_name}-PublicSubnet-a"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/elb"                = "1"
+    Name                                = "${var.environment_name}-PublicSubnet-a"
+    Project                             = var.project_tag
+    "kubernetes.io/role/elb"            = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -185,9 +190,9 @@ resource "aws_subnet" "public_subnet2" {
   availability_zone       = var.availability_zone2
 
   tags = {
-    Name                                    = "${var.environment_name}-PublicSubnet-c"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/elb"                = "1"
+    Name                                = "${var.environment_name}-PublicSubnet-c"
+    Project                             = var.project_tag
+    "kubernetes.io/role/elb"            = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -198,9 +203,9 @@ resource "aws_subnet" "private_app_subnet" {
   availability_zone = var.availability_zone
 
   tags = {
-    Name                                    = "${var.environment_name}-PrivateAppSubnet-a"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/internal-elb"       = "1"
+    Name                                = "${var.environment_name}-PrivateAppSubnet-a"
+    Project                             = var.project_tag
+    "kubernetes.io/role/internal-elb"   = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -211,9 +216,9 @@ resource "aws_subnet" "private_app_subnet2" {
   availability_zone = var.availability_zone2
 
   tags = {
-    Name                                    = "${var.environment_name}-PrivateAppSubnet-c"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/internal-elb"       = "1"
+    Name                                = "${var.environment_name}-PrivateAppSubnet-c"
+    Project                             = var.project_tag
+    "kubernetes.io/role/internal-elb"   = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -241,8 +246,6 @@ resource "aws_subnet" "private_db_subnet2" {
 }
 
 resource "aws_eip" "nat_gateway_eip" {
-  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
-  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-a"
     Project = var.project_tag
@@ -257,12 +260,9 @@ resource "aws_nat_gateway" "nat_gateway" {
     Name    = "${var.environment_name}-NatGateway-a"
     Project = var.project_tag
   }
-  # depends_on: aws_internet_gateway.internet_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_eip" "nat_gateway_eip2" {
-  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
-  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-c"
     Project = var.project_tag
@@ -277,7 +277,6 @@ resource "aws_nat_gateway" "nat_gateway2" {
     Name    = "${var.environment_name}-NatGateway-c"
     Project = var.project_tag
   }
-  # depends_on: aws_internet_gateway.internet_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_route_table" "public_route_table" {
@@ -318,7 +317,6 @@ resource "aws_route" "private_app_route" {
   route_table_id         = aws_route_table.private_app_route_table.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gateway.id
-  # depends_on: aws_nat_gateway.nat_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_route_table_association" "private_app_subnet_association" {
@@ -339,7 +337,6 @@ resource "aws_route" "private_app_route2" {
   route_table_id         = aws_route_table.private_app_route_table2.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gateway2.id
-  # depends_on: aws_nat_gateway.nat_gateway2 (Terraform infers this implicitly)
 }
 
 resource "aws_route_table_association" "private_app_subnet_association2" {
@@ -486,8 +483,8 @@ resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
 
 # --- 4. EKS Cluster ---
 resource "aws_eks_cluster" "eks_cluster" {
-  name     = var.eks_cluster_name
-  version  = "1.29"
+  name    = var.eks_cluster_name
+  version = "1.29"
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
@@ -498,7 +495,7 @@ resource "aws_eks_cluster" "eks_cluster" {
       aws_subnet.private_app_subnet.id,
       aws_subnet.private_app_subnet2.id,
     ]
-    endpoint_private_access = false # Set to true for private access only
+    endpoint_private_access = false
     endpoint_public_access  = true
   }
 
@@ -532,20 +529,20 @@ resource "aws_db_subnet_group" "my_rds_db_subnet_group" {
 
 # --- 6. RDS MySQL Instance ---
 resource "aws_db_instance" "my_rds_db_instance" {
-  identifier           = var.db_instance_identifier
-  engine               = "mysql"
-  engine_version       = "8.0.32"
-  username             = "admin"       # Hardcoded username
-  password             = "password123" # Hardcoded password - REMOVE THIS FOR PRODUCTION!
-  instance_class       = var.db_instance_class
-  allocated_storage    = var.db_allocated_storage
-  db_subnet_group_name = aws_db_subnet_group.my_rds_db_subnet_group.name
+  identifier            = var.db_instance_identifier
+  engine                = "mysql"
+  engine_version        = "8.0.32"
+  username              = "admin"       # Hardcoded username
+  password              = "password123" # Hardcoded password - REMOVE THIS FOR PRODUCTION!
+  instance_class        = var.db_instance_class
+  allocated_storage     = var.db_allocated_storage
+  db_subnet_group_name  = aws_db_subnet_group.my_rds_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  publicly_accessible  = true          # Changed from false to true
+  publicly_accessible   = true
   backup_retention_period = 7
-  multi_az             = false
-  db_name              = var.db_name
-  skip_final_snapshot  = true # Set to false for production to retain final snapshot
+  multi_az              = false
+  db_name               = var.db_name
+  skip_final_snapshot   = true # Set to false for production to retain final snapshot
 
   tags = {
     Name    = "${var.environment_name}-ExpenseDB"
@@ -637,7 +634,7 @@ resource "aws_eks_node_group" "eks_node_group" {
   ami_type = "AL2_x86_64" # Amazon Linux 2 AMI
 
   remote_access {
-    ec2_ssh_key               = var.ssh_key_pair_name
+    ec2_ssh_key         = var.ssh_key_pair_name
     source_security_group_ids = [aws_security_group.eks_worker_node_sg.id]
   }
 
@@ -669,32 +666,32 @@ output "vpc_id" {
 }
 
 output "public_subnet_id_az_a" {
-  description = "The ID of the Public Subnet in us-east-2a"
+  description = "The ID of the Public Subnet in the first selected AZ"
   value       = aws_subnet.public_subnet.id
 }
 
 output "public_subnet_id_az_c" {
-  description = "The ID of the Public Subnet in us-east-2c"
+  description = "The ID of the Public Subnet in the second selected AZ"
   value       = aws_subnet.public_subnet2.id
 }
 
 output "private_app_subnet_id_az_a" {
-  description = "The ID of the Private Application Subnet in us-east-2a"
+  description = "The ID of the Private Application Subnet in the first selected AZ"
   value       = aws_subnet.private_app_subnet.id
 }
 
 output "private_app_subnet_id_az_c" {
-  description = "The ID of the Private Application Subnet in us-east-2c"
+  description = "The ID of the Private Application Subnet in the second selected AZ"
   value       = aws_subnet.private_app_subnet2.id
 }
 
 output "private_db_subnet_id_az_a" {
-  description = "The ID of the Private Database Subnet in us-east-2a"
+  description = "The ID of the Private Database Subnet in the first selected AZ"
   value       = aws_subnet.private_db_subnet.id
 }
 
 output "private_db_subnet_id_az_c" {
-  description = "The ID of the Private Database Subnet in us-east-2c"
+  description = "The ID of the Private Database Subnet in the second selected AZ"
   value       = aws_subnet.private_db_subnet2.id
 }
 
