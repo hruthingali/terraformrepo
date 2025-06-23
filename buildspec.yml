@@ -1,62 +1,29 @@
 version: 0.2
 
-env:
-  variables:
-    TF_VERSION: "1.8.5"
-    TF_PATH: "/usr/local/bin"
-    TF_STATE_BUCKET: "3-tier-s3project"
-    TF_STATE_LOCK_TABLE: "terraform-lock-expensetracker"
-    ENV_NAME: "ExpenseTracker"
-
 phases:
   install:
     runtime-versions:
       python: 3.x
     commands:
-      - echo "Installing Terraform version ${TF_VERSION}..."
-      - curl -s -o terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
-      - unzip -o terraform.zip -d "${TF_PATH}"
+      - echo "Installing Terraform..."
+      - curl -s -o terraform.zip https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_linux_amd64.zip
+      - unzip -o terraform.zip -d /usr/local/bin
       - rm terraform.zip
-      - chmod +x "${TF_PATH}/terraform"
-      - export PATH="${TF_PATH}:$PATH"
       - terraform version
       - aws --version
-      - echo "Running in AWS region: $AWS_REGION"
-
-  pre_build:
-    commands:
-      - echo "Checking if DynamoDB lock table ${TF_STATE_LOCK_TABLE} exists..."
-      - aws dynamodb describe-table --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}" > /dev/null 2>&1 || (
-          echo "DynamoDB table not found. Creating..." &&
-          aws dynamodb create-table \
-            --table-name "${TF_STATE_LOCK_TABLE}" \
-            --attribute-definitions AttributeName=LockID,AttributeType=S \
-            --key-schema AttributeName=LockID,KeyType=HASH \
-            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
-            --region "${AWS_REGION}" &&
-          echo "Waiting for DynamoDB table to be active..." &&
-          aws dynamodb wait table-exists --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}"
-        )
-      - echo "Initializing Terraform backend..."
-      - terraform init \
-          -backend-config="bucket=${TF_STATE_BUCKET}" \
-          -backend-config="key=${ENV_NAME}/terraform.tfstate" \
-          -backend-config="dynamodb_table=${TF_STATE_LOCK_TABLE}" \
-          -backend-config="region=${AWS_REGION}" \
-          -reconfigure
 
   build:
     commands:
-      - echo "Validating Terraform code..."
+      - echo "Initializing Terraform..."
+      - terraform init -reconfigure
+      - echo "Validating Terraform..."
       - terraform validate
-      - echo "Generating Terraform plan..."
-      - terraform plan -lock=true -out=tfplan.out
-      - echo "Applying Terraform plan..."
-      - terraform apply -lock=true -auto-approve tfplan.out
+      - echo "Planning Terraform..."
+      - terraform plan -out=tfplan.out
+      - echo "Applying Terraform..."
+      - terraform apply -auto-approve tfplan.out
 
   post_build:
     commands:
       - echo "Terraform apply complete."
-      - echo "Fetching outputs..."
-      - terraform output -raw eks_cluster_name_output || echo "Output 'eks_cluster_name_output' not found."
-      - terraform output -raw db_endpoint_address || echo "Output 'db_endpoint_address' not found."
+      - terraform output
