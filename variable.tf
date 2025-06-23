@@ -61,20 +61,6 @@ variable "private_db_subnet_cidr2" {
   default     = "10.0.4.0/24"
 }
 
-variable "availability_zone" {
-  description = "The first Availability Zone to deploy primary resources into (e.g., us-east-2a)."
-  type        = string
-  # Dynamically select the first available AZ
-  default     = data.aws_availability_zones.available.names[0]
-}
-
-variable "availability_zone2" {
-  description = "The second Availability Zone for RDS and EKS (e.g., us-east-2c)."
-  type        = string
-  # Dynamically select the second available AZ
-  default     = data.aws_availability_zones.available.names[1]
-}
-
 variable "eks_cluster_name" {
   description = "Name of the EKS cluster."
   type        = string
@@ -132,5 +118,31 @@ variable "db_allocated_storage" {
 variable "ssh_key_pair_name" {
   description = "The EC2 Key Pair Name for SSH access to EKS worker nodes."
   type        = string
-  default     = "mykey" # IMPORTANT: Replace with an existing EC2 Key Pair Name in your AWS account
+  default     = "mykey"
 }
+
+# main.tf
+
+provider "aws" {}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  availability_zone  = data.aws_availability_zones.available.names[0]
+  availability_zone2 = data.aws_availability_zones.available.names[1]
+}
+
+# All other resources remain the same, but replace:
+# var.availability_zone     -> local.availability_zone
+# var.availability_zone2    -> local.availability_zone2
+
+# Example:
+# availability_zone = var.availability_zone
+# Change to:
+# availability_zone = local.availability_zone
+
+# Repeat this wherever AZs are used in your main.tf.
+
+# Keep the rest of your main.tf structure and content unchanged, except for replacing those two variable usages with local values.
