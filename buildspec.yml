@@ -29,21 +29,16 @@ phases:
       # If your Terraform code is in a subdirectory (e.g., 'terraform/'), uncomment and use: cd terraform/
 
       - echo "Checking for existing DynamoDB state lock table: ${TF_STATE_LOCK_TABLE} in ${AWS_REGION}..."
-      - |
-        if ! aws dynamodb describe-table --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}" 2>/dev/null; then
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} does not exist. Creating now..."
-          aws dynamodb create-table \
-            --table-name "${TF_STATE_LOCK_TABLE}" \
-            --attribute-definitions AttributeName=LockID,AttributeType=S \
-            --key-schema AttributeName=LockID,KeyType=HASH \
-            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
-            --region "${AWS_REGION}"
-          echo "Waiting for DynamoDB table ${TF_STATE_LOCK_TABLE} to become active..."
-          aws dynamodb wait table-exists --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}"
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} created successfully."
-        else
-          echo "DynamoDB table ${TF_STATE_LOCK_TABLE} already exists."
-        fi
+      # Using individual commands for better YAML parsing compatibility
+      - if ! aws dynamodb describe-table --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}" 2>/dev/null; then
+      -   echo "DynamoDB table ${TF_STATE_LOCK_TABLE} does not exist. Creating now..."
+      -   aws dynamodb create-table --table-name "${TF_STATE_LOCK_TABLE}" --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --region "${AWS_REGION}"
+      -   echo "Waiting for DynamoDB table ${TF_STATE_LOCK_TABLE} to become active..."
+      -   aws dynamodb wait table-exists --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}"
+      -   echo "DynamoDB table ${TF_STATE_LOCK_TABLE} created successfully."
+      - else
+      -   echo "DynamoDB table ${TF_STATE_LOCK_TABLE} already exists."
+      - fi
 
       - echo "Initializing Terraform with S3 backend..."
       - terraform init \
