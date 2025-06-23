@@ -4,9 +4,9 @@ env:
   variables:
     TF_VERSION: "1.8.5"
     TF_PATH: "/usr/local/bin"
-    TF_STATE_BUCKET: "3-tier-s3project"     # Replace this
-    TF_STATE_LOCK_TABLE: "terraform-lock-expensetracker"   # Replace this
-    ENV_NAME: "ExpenseTracker"                               # Matches default in variables.tf
+    TF_STATE_BUCKET: "3-tier-s3project"                       # Replace if needed
+    TF_STATE_LOCK_TABLE: "terraform-lock-expensetracker"     # Replace if needed
+    ENV_NAME: "ExpenseTracker"                                # Matches variables.tf
 
 phases:
   install:
@@ -19,8 +19,8 @@ phases:
       - rm terraform.zip
       - chmod +x "${TF_PATH}/terraform"
       - export PATH="${TF_PATH}:$PATH"
-      - echo "Terraform version: $(terraform version)"
-      - echo "AWS CLI version: $(aws --version)"
+      - terraform version
+      - aws --version
       - echo "Running in AWS region: $AWS_REGION"
 
   pre_build:
@@ -38,9 +38,9 @@ phases:
           echo "Waiting for DynamoDB table to be active..."
           aws dynamodb wait table-exists --table-name "${TF_STATE_LOCK_TABLE}" --region "${AWS_REGION}"
         else
-          echo "DynamoDB lock table exists."
+          echo "DynamoDB lock table already exists."
         fi
-      - echo "Initializing Terraform with backend..."
+      - echo "Initializing Terraform backend..."
       - terraform init \
           -backend-config="bucket=${TF_STATE_BUCKET}" \
           -backend-config="key=${ENV_NAME}/terraform.tfstate" \
@@ -52,9 +52,9 @@ phases:
     commands:
       - echo "Validating Terraform code..."
       - terraform validate
-      - echo "Planning Terraform changes..."
+      - echo "Generating Terraform plan..."
       - terraform plan -lock=true -out=tfplan.out
-      - echo "Applying Terraform..."
+      - echo "Applying Terraform plan..."
       - terraform apply -lock=true -auto-approve tfplan.out
 
   post_build:
