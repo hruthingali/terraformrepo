@@ -241,8 +241,8 @@ resource "aws_subnet" "private_db_subnet2" {
 }
 
 resource "aws_eip" "nat_gateway_eip" {
-  vpc = true
-
+  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
+  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-a"
     Project = var.project_tag
@@ -261,8 +261,8 @@ resource "aws_nat_gateway" "nat_gateway" {
 }
 
 resource "aws_eip" "nat_gateway_eip2" {
-  vpc = true
-
+  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
+  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-c"
     Project = var.project_tag
