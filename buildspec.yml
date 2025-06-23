@@ -32,10 +32,11 @@ phases:
       - echo "Validating Terraform configuration..."
       - terraform validate
       - echo "Generating Terraform plan..."
-      # Create a plan file. For production, you might pass this plan to a separate apply stage.
+      # For production, you might pass this plan to a separate apply stage.
       - terraform plan -out=tfplan.out
       - echo "Applying Terraform changes..."
-      - terraform apply -auto-approve tfplan.out # Automatically approve the plan
+      # Automatically approve the plan. For production, consider a manual approval step in CodePipeline.
+      - terraform apply -auto-approve tfplan.out
 
   post_build:
     commands:
