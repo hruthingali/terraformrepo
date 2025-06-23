@@ -515,7 +515,9 @@ resource "aws_eks_cluster" "eks_cluster" {
 
 # --- 5. RDS DB Subnet Group ---
 resource "aws_db_subnet_group" "my_rds_db_subnet_group" {
-  name        = "${var.environment_name}-RDSDBSubnetGroup"
+  # The 'name' attribute must be lowercase, alphanumeric, and can contain hyphens.
+  # Converting environment_name to lowercase to adhere to the naming convention.
+  name        = "${lower(var.environment_name)}-rds-db-subnet-group"
   description = "Subnet group for RDS instance"
   subnet_ids = [
     aws_subnet.private_db_subnet.id,
