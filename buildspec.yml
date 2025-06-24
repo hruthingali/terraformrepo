@@ -11,8 +11,9 @@ phases:
   install:
     commands:
       - echo "Installing Terraform CLI version $TF_VERSION..."
-      - apt-get update -y # Update package list for apt
-      - apt-get install -y unzip curl # Install unzip and curl if not present
+      # Use yum for Amazon Linux 2 or other Red Hat-based distributions
+      - yum update -y
+      - yum install -y unzip curl # Install unzip and curl if not present
       - curl -LO https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
       - unzip terraform_${TF_VERSION}_linux_amd64.zip
       - mv terraform /usr/local/bin/
