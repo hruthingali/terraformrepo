@@ -5,7 +5,7 @@ provider "aws" {}
 variable "environment_name" {
   description = "A name prefix for resources to ensure uniqueness."
   type        = string
-  default     = "ExpenseTracker"
+  default     = "ExpenseTrackerV2" # UPDATED: Changed the default value to a new unique name
 }
 
 variable "project_tag" {
@@ -624,7 +624,7 @@ resource "aws_eks_node_group" "eks_node_group" {
   }
 
   labels = {
-    Environment     = var.environment_name
+    Environment   = var.environment_name
     NodeGroupType = "app-nodes"
   }
 
