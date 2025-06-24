@@ -1,11 +1,11 @@
-# Configure the AWS Provider here
+# Configure the AWS Provider
 provider "aws" {}
 
 # --- Variables ---
 variable "environment_name" {
   description = "A name prefix for resources to ensure uniqueness."
   type        = string
-  default     = "ExpenseTrackerV2" # UPDATED: Changed the default value to a new unique name
+  default     = "ExpenseTrackerV3" # UPDATED AGAIN: Changed the default value to a new unique name
 }
 
 variable "project_tag" {
