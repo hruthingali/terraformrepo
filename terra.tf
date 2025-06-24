@@ -1,13 +1,7 @@
-# main.tf
-
 # Configure the AWS Provider
-provider "aws" {
-  # The AWS region will be automatically picked up from environment variables (AWS_REGION, AWS_DEFAULT_REGION)
-  # or your AWS configuration file (~/.aws/config).
-  # region = "us-west-1" # Removed hardcoded region
-}
+provider "aws" {}
 
-# --- Variables (corresponding to CloudFormation Parameters) ---
+# --- Variables ---
 variable "environment_name" {
   description = "A name prefix for resources to ensure uniqueness."
   type        = string
@@ -71,13 +65,13 @@ variable "private_db_subnet_cidr2" {
 variable "availability_zone" {
   description = "The Availability Zone to deploy primary resources into (AZ-a)."
   type        = string
-  default     = "us-east-2a" # Changed to us-east-2a as per error message
+  default     = "us-east-2a"
 }
 
 variable "availability_zone2" {
   description = "The second Availability Zone for RDS and EKS (AZ-c)."
   type        = string
-  default     = "us-east-2c" # Changed to us-east-2c as per error message
+  default     = "us-east-2c"
 }
 
 variable "eks_cluster_name" {
@@ -141,7 +135,7 @@ variable "ssh_key_pair_name" {
 }
 
 
-# --- 1. VPC and Networking Components (Foundation) ---
+# --- 1. VPC and Networking Components ---
 resource "aws_vpc" "my_vpc" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -162,8 +156,6 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 
-# No explicit aws_vpc_gateway_attachment needed, as aws_internet_gateway handles attachment via vpc_id
-
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.my_vpc.id
   cidr_block              = var.public_subnet_cidr
@@ -171,9 +163,9 @@ resource "aws_subnet" "public_subnet" {
   availability_zone       = var.availability_zone
 
   tags = {
-    Name                                    = "${var.environment_name}-PublicSubnet-a"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/elb"                = "1"
+    Name                                = "${var.environment_name}-PublicSubnet-a"
+    Project                             = var.project_tag
+    "kubernetes.io/role/elb"            = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -185,9 +177,9 @@ resource "aws_subnet" "public_subnet2" {
   availability_zone       = var.availability_zone2
 
   tags = {
-    Name                                    = "${var.environment_name}-PublicSubnet-c"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/elb"                = "1"
+    Name                                = "${var.environment_name}-PublicSubnet-c"
+    Project                             = var.project_tag
+    "kubernetes.io/role/elb"            = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -198,9 +190,9 @@ resource "aws_subnet" "private_app_subnet" {
   availability_zone = var.availability_zone
 
   tags = {
-    Name                                    = "${var.environment_name}-PrivateAppSubnet-a"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/internal-elb"       = "1"
+    Name                                = "${var.environment_name}-PrivateAppSubnet-a"
+    Project                             = var.project_tag
+    "kubernetes.io/role/internal-elb"   = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -211,9 +203,9 @@ resource "aws_subnet" "private_app_subnet2" {
   availability_zone = var.availability_zone2
 
   tags = {
-    Name                                    = "${var.environment_name}-PrivateAppSubnet-c"
-    Project                                 = var.project_tag
-    "kubernetes.io/role/internal-elb"       = "1"
+    Name                                = "${var.environment_name}-PrivateAppSubnet-c"
+    Project                             = var.project_tag
+    "kubernetes.io/role/internal-elb"   = "1"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "owned"
   }
 }
@@ -241,8 +233,6 @@ resource "aws_subnet" "private_db_subnet2" {
 }
 
 resource "aws_eip" "nat_gateway_eip" {
-  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
-  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-a"
     Project = var.project_tag
@@ -257,12 +247,9 @@ resource "aws_nat_gateway" "nat_gateway" {
     Name    = "${var.environment_name}-NatGateway-a"
     Project = var.project_tag
   }
-  # depends_on: aws_internet_gateway.internet_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_eip" "nat_gateway_eip2" {
-  # Removed 'vpc = true' as it's not a valid argument for new EIP allocations in a VPC context.
-  # The EIP will automatically be in a VPC when associated with a NAT Gateway.
   tags = {
     Name    = "${var.environment_name}-NatGatewayEIP-c"
     Project = var.project_tag
@@ -277,7 +264,6 @@ resource "aws_nat_gateway" "nat_gateway2" {
     Name    = "${var.environment_name}-NatGateway-c"
     Project = var.project_tag
   }
-  # depends_on: aws_internet_gateway.internet_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_route_table" "public_route_table" {
@@ -318,7 +304,6 @@ resource "aws_route" "private_app_route" {
   route_table_id         = aws_route_table.private_app_route_table.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gateway.id
-  # depends_on: aws_nat_gateway.nat_gateway (Terraform infers this implicitly)
 }
 
 resource "aws_route_table_association" "private_app_subnet_association" {
@@ -339,7 +324,6 @@ resource "aws_route" "private_app_route2" {
   route_table_id         = aws_route_table.private_app_route_table2.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gateway2.id
-  # depends_on: aws_nat_gateway.nat_gateway2 (Terraform infers this implicitly)
 }
 
 resource "aws_route_table_association" "private_app_subnet_association2" {
@@ -498,12 +482,12 @@ resource "aws_eks_cluster" "eks_cluster" {
       aws_subnet.private_app_subnet.id,
       aws_subnet.private_app_subnet2.id,
     ]
-    endpoint_private_access = false # Set to true for private access only
+    endpoint_private_access = false
     endpoint_public_access  = true
   }
 
   access_config {
-    authentication_mode            = "API_AND_CONFIG_MAP"
+    authentication_mode                 = "API_AND_CONFIG_MAP"
     bootstrap_cluster_creator_admin_permissions = true
   }
 
@@ -515,8 +499,6 @@ resource "aws_eks_cluster" "eks_cluster" {
 
 # --- 5. RDS DB Subnet Group ---
 resource "aws_db_subnet_group" "my_rds_db_subnet_group" {
-  # The 'name' attribute must be lowercase, alphanumeric, and can contain hyphens.
-  # Converting environment_name to lowercase to adhere to the naming convention.
   name        = "${lower(var.environment_name)}-rds-db-subnet-group"
   description = "Subnet group for RDS instance"
   subnet_ids = [
@@ -532,20 +514,20 @@ resource "aws_db_subnet_group" "my_rds_db_subnet_group" {
 
 # --- 6. RDS MySQL Instance ---
 resource "aws_db_instance" "my_rds_db_instance" {
-  identifier           = var.db_instance_identifier
-  engine               = "mysql"
-  engine_version       = "8.0.32"
-  username             = "admin"       # Hardcoded username
-  password             = "password123" # Hardcoded password - REMOVE THIS FOR PRODUCTION!
-  instance_class       = var.db_instance_class
-  allocated_storage    = var.db_allocated_storage
-  db_subnet_group_name = aws_db_subnet_group.my_rds_db_subnet_group.name
+  identifier            = var.db_instance_identifier
+  engine                = "mysql"
+  engine_version        = "8.0.32"
+  username              = "admin"
+  password              = "password123"
+  instance_class        = var.db_instance_class
+  allocated_storage     = var.db_allocated_storage
+  db_subnet_group_name  = aws_db_subnet_group.my_rds_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  publicly_accessible  = true          # Changed from false to true
+  publicly_accessible   = true
   backup_retention_period = 7
-  multi_az             = false
-  db_name              = var.db_name
-  skip_final_snapshot  = true # Set to false for production to retain final snapshot
+  multi_az              = false
+  db_name               = var.db_name
+  skip_final_snapshot   = true
 
   tags = {
     Name    = "${var.environment_name}-ExpenseDB"
@@ -576,7 +558,7 @@ resource "aws_security_group_rule" "eks_worker_node_sg_ingress_self" {
   type                     = "ingress"
   from_port                = 0
   to_port                  = 65535
-  protocol                 = "-1" # All protocols
+  protocol                 = "-1"
   source_security_group_id = aws_security_group.eks_worker_node_sg.id
   security_group_id        = aws_security_group.eks_worker_node_sg.id
 }
@@ -601,20 +583,20 @@ resource "aws_security_group_rule" "eks_cluster_sg_ingress_admin" {
 
 resource "aws_security_group_rule" "eks_cluster_sg_ingress_from_worker_nodes" {
   type                     = "ingress"
-  from_port                = 10250 # Kubelet port range typically
-  to_port                  = 65535 # Ephemeral ports
+  from_port                = 10250
+  to_port                  = 65535
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.eks_worker_node_sg.id
   security_group_id        = aws_security_group.eks_cluster_sg.id
 }
 
-resource "aws_security_group_rule" "rds_sg_ingress_from_eks_worker_nodes" {
-  type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.eks_worker_node_sg.id
-  security_group_id        = aws_security_group.rds_sg.id
+resource "aws_security_group_rule" "rds_sg_ingress_from_anywhere" {
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"] # Changed to 0.0.0.0/0 as requested
+  security_group_id = aws_security_group.rds_sg.id
 }
 
 # --- 8. EKS Managed Node Group ---
@@ -634,15 +616,15 @@ resource "aws_eks_node_group" "eks_node_group" {
     max_size     = var.eks_node_max_size
   }
 
-  ami_type = "AL2_x86_64" # Amazon Linux 2 AMI
+  ami_type = "AL2_x86_64"
 
   remote_access {
-    ec2_ssh_key               = var.ssh_key_pair_name
+    ec2_ssh_key         = var.ssh_key_pair_name
     source_security_group_ids = [aws_security_group.eks_worker_node_sg.id]
   }
 
   labels = {
-    Environment   = var.environment_name
+    Environment     = var.environment_name
     NodeGroupType = "app-nodes"
   }
 
@@ -651,7 +633,6 @@ resource "aws_eks_node_group" "eks_node_group" {
     Project = var.project_tag
   }
 
-  # Ensure the node group creation waits for the EKS cluster to be active
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
     aws_iam_role_policy_attachment.eks_vpc_resource_controller_policy,
