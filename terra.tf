@@ -1,4 +1,4 @@
-# Configure the AWS Provider
+# Configure the AWS Provider here
 provider "aws" {}
 
 # --- Variables ---
